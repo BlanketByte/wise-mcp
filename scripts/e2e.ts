@@ -242,7 +242,7 @@ check("icon.png / favicon.png served", (await fetch(`${B}/icon.png`)).headers.ge
 const types = await Promise.all(["/logo.svg", "/logo.png", "/apple-touch-icon.png"].map((p) => fetch(B + p).then((r) => r.headers.get("content-type"))));
 check("logo assets served", JSON.stringify(types) === JSON.stringify(["image/svg+xml", "image/png", "image/png"]), types.join(","));
 const home = await fetch(`${B}/`).then((r) => r.text());
-check("pages show the version", home.includes(`>v${JSON.parse(readFileSync("package.json", "utf8")).version}</a>`));
+check("pages show the version", home.includes(`>v${JSON.parse(readFileSync("package.json", "utf8")).version}</a></footer>`));
 check("no HTTP warning on localhost", !home.includes('class="insecure"'));
 const viaHttp = await fetch(`${B}/`, { headers: { "x-forwarded-host": "wise.example.com", "x-forwarded-proto": "http" } }).then((r) => r.text());
 const viaHttps = await fetch(`${B}/`, { headers: { "x-forwarded-host": "wise.example.com", "x-forwarded-proto": "https" } }).then((r) => r.text());

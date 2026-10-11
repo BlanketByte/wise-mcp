@@ -194,7 +194,7 @@ function layout(title: string, body: string) {
   footer .ic { width:14px; height:14px; }
   footer a { color:var(--muted); }
   footer a.gh { display:inline-flex; align-items:center; gap:4px; }
-  footer a.ver { color:var(--faint); text-decoration:none; font-variant-numeric:tabular-nums; }
+  footer a.ver { flex-basis:100%; text-align:center; margin-top:-2px; color:var(--faint); font-size:12px; text-decoration:none; font-variant-numeric:tabular-nums; }
   footer a.ver:hover { text-decoration:underline; }
   .dot { opacity:.5; }
 </style>
@@ -216,7 +216,7 @@ function card(inner: string, opts: { title: string; subtitle?: string; wide?: bo
     </div>
     ${inner}
   </div>
-  <footer>${icon("lock")}<span>Token encrypted at rest</span><span class="dot">·</span><a href="/sessions">Manage sessions</a><span class="dot">·</span><a class="gh" href="${REPO_URL}" target="_blank" rel="noopener">${icon("github")}Source</a><span class="dot">·</span><a class="ver" href="${REPO_URL}/releases/tag/v${VERSION}" target="_blank" rel="noopener" title="Release notes">v${VERSION}</a></footer>
+  <footer>${icon("lock")}<span>Token encrypted at rest</span><span class="dot">·</span><a href="/sessions">Manage sessions</a><span class="dot">·</span><a class="gh" href="${REPO_URL}" target="_blank" rel="noopener">${icon("github")}Source</a><a class="ver" href="${REPO_URL}/releases/tag/v${VERSION}" target="_blank" rel="noopener" title="Release notes">v${VERSION}</a></footer>
 </main>`;
 }
 
