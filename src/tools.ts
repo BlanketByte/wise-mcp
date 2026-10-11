@@ -91,7 +91,10 @@ export function registerTools(
           .string()
           .optional()
           .describe(`One of ${Object.keys(ACTIVITY_TYPES).join(", ")}, or a raw Wise monetaryResourceType (e.g. CARD_TRANSACTION)`),
-        status: z.enum(["COMPLETED", "IN_PROGRESS", "UPCOMING", "REQUIRES_ATTENTION", "CANCELLED"]).optional(),
+        status: z
+          .enum(["COMPLETED", "IN_PROGRESS", "UPCOMING", "REQUIRES_ATTENTION", "CANCELLED"])
+          .optional()
+          .describe("Only activity in this state, e.g. UPCOMING for pending card payments"),
         since: date.optional().describe("Only on/after this date (YYYY-MM-DD or ISO timestamp)"),
         until: date.optional().describe("Only on/before this date (YYYY-MM-DD or ISO timestamp)"),
         search: z
@@ -130,8 +133,8 @@ export function registerTools(
         "Filter by date (YYYY-MM-DD), status (e.g. outgoing_payment_sent, processing, cancelled) or search (reference/recipient). Default profile: personal.",
       inputSchema: {
         profile: profileArg,
-        since: date.optional(),
-        until: date.optional(),
+        since: date.optional().describe("Only transfers created on/after this date (YYYY-MM-DD or ISO timestamp)"),
+        until: date.optional().describe("Only transfers created on/before this date (YYYY-MM-DD or ISO timestamp)"),
         status: z.string().optional().describe("Wise transfer status, e.g. outgoing_payment_sent"),
         search: z.string().optional().describe("Case-insensitive match on reference or recipient name"),
         limit: z.number().int().min(1).max(200).optional().describe("Max transfers (default 25)"),
@@ -220,10 +223,10 @@ function registerWriteTools(
         "Price a transfer or conversion: rate, fee, amount received and estimated delivery. Creates nothing the user sees and moves no money. " +
         "Give either send_amount (in source_currency) or receive_amount (in target_currency).",
       inputSchema: {
-        source_currency: currency,
-        target_currency: currency,
-        send_amount: z.number().positive().optional(),
-        receive_amount: z.number().positive().optional(),
+        source_currency: currency.describe("Currency you send, e.g. EUR"),
+        target_currency: currency.describe("Currency the recipient gets, e.g. RON (same as source_currency for a same-currency transfer)"),
+        send_amount: z.number().positive().optional().describe("Amount to send, in source_currency (give this or receive_amount)"),
+        receive_amount: z.number().positive().optional().describe("Amount the recipient should get, in target_currency (give this or send_amount)"),
         recipient_id: z.number().int().optional().describe("Saved recipient, for an exact price and delivery time"),
         profile: profileArg,
       },
@@ -274,7 +277,7 @@ function registerWriteTools(
       description:
         `Step 1 of 2 to save a new recipient. Use get_recipient_requirements first for the right \`type\` and \`details\` keys. ${TWO_STEP}`,
       inputSchema: {
-        currency,
+        currency: currency.describe("Currency of the recipient's account, e.g. EUR"),
         type: z.string().min(1).describe("Requirement type, e.g. iban, sort_code, aba"),
         account_holder_name: z.string().min(2).describe("Recipient's full name or business name"),
         details: z
@@ -403,7 +406,7 @@ function registerWriteTools(
     {
       title: "Prepare cancelling a Wise transfer",
       description: `Step 1 of 2 to cancel a transfer that hasn't been paid yet (status incoming_payment_waiting). ${TWO_STEP}`,
-      inputSchema: { transfer_id: z.coerce.number().int() },
+      inputSchema: { transfer_id: z.coerce.number().int().describe("Id of the unpaid transfer (from list_transfers or prepare_transfer's confirmation)") },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ transfer_id }) =>
@@ -504,7 +507,7 @@ function registerWriteTools(
     {
       title: "Discard a prepared Wise action",
       description: "Throw away an action prepared with a prepare_* tool, before it's confirmed.",
-      inputSchema: { confirmation_code: z.string() },
+      inputSchema: { confirmation_code: z.string().describe("Code from a prepare_* tool to throw away, e.g. TX-1A2B3C4D") },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async ({ confirmation_code }) => {
