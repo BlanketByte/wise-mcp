@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # Trusted publishing (OIDC, no NPM_TOKEN) needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      # Trusted publishing (OIDC, no NPM_TOKEN) needs npm 11.5.1+, staged publishing 11.15+; Node 22 ships npm 10.
       - run: npm install -g npm@11
       - run: npm ci
       - name: Check tag matches package.json
@@ -40,18 +40,28 @@ jobs:
           VERSION=${TAG#v}
           if curl -sf -o /dev/null "https://registry.npmjs.org/@blanketbyte%2fwise-mcp/$VERSION"; then
             echo "@blanketbyte/wise-mcp@$VERSION is already on npm"
+          elif npm publish --provenance --access public 2>&1 | tee publish.log; then
+            echo "Published directly"
           else
-            npm publish --provenance --access public
+            # If the trusted publisher is stage-only, stage the version: it goes live once a
+            # maintainer approves it on npmjs.com with 2FA. A 409 means it's already staged.
+            if npm stage publish --provenance --access public 2>&1 | tee stage.log || grep -q "409" stage.log; then
+              echo "::notice::@blanketbyte/wise-mcp@$VERSION is staged. Approve it on npmjs.com (or run: npm stage list / npm stage approve <id>); the next step waits for it."
+            else
+              cat publish.log; exit 1
+            fi
           fi
       - name: Publish to the official MCP Registry
         run: |
           VERSION=${TAG#v}
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
-          # A new npm version can take a few minutes to become visible, and the registry checks it exists.
-          for i in $(seq 1 30); do
+          # A new npm version can take a few minutes to become visible (or wait for staged approval),
+          # and the registry checks it exists. Waits up to 30 minutes; re-run the workflow if it times out.
+          for i in $(seq 1 90); do
             curl -sf -o /dev/null "https://registry.npmjs.org/@blanketbyte%2fwise-mcp/$VERSION" && break
-            echo "Waiting for npm to serve $VERSION…"; sleep 20
+            echo "Waiting for npm to serve $VERSION (approve it on npmjs.com if it's staged)…"; sleep 20
           done
+          curl -sf -o /dev/null "https://registry.npmjs.org/@blanketbyte%2fwise-mcp/$VERSION" || { echo "::error::$VERSION isn't on npm yet. Approve the staged version, then re-run: gh workflow run release.yml -f tag=$TAG"; exit 1; }
           curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
