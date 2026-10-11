@@ -8,7 +8,7 @@ import { randomToken } from "../crypto.js";
 import { ConnectionStore, wiseClient } from "../wise/connections.js";
 import { WiseAccessRevokedError, WiseApiError, type WiseMe } from "../wise/client.js";
 import { AuthStore } from "./store.js";
-import { loginPage, messagePage, pageCsp, SESSION_CHOICES } from "./pages.js";
+import { INSECURE_BANNER, loginPage, messagePage, pageCsp, SESSION_CHOICES } from "./pages.js";
 
 const ACCESS_TTL_MS = 60 * 60 * 1000; // 1 hour
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -234,7 +234,20 @@ export class WiseOAuthProvider implements OAuthServerProvider {
   }
 }
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/** True when the browser reached us over plain HTTP on a real hostname (behind the proxy, via X-Forwarded-Proto). */
+export function isInsecure(req: Request) {
+  return req.protocol !== "https" && !LOCAL_HOSTS.has(req.hostname);
+}
+
 export function page(res: Response, status = 200, formTargets: string[] = []) {
+  if (isInsecure(res.req)) {
+    // Put a red warning at the top of the card on every page that's served over HTTP.
+    const send = res.send.bind(res);
+    res.send = ((body?: unknown) =>
+      send(typeof body === "string" ? body.replace('<div class="inner">', `<div class="inner">${INSECURE_BANNER}`) : body)) as typeof res.send;
+  }
   res.status(status);
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Security-Policy", pageCsp(formTargets));

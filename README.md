@@ -143,6 +143,7 @@ transfers only:                                    you pay it in the Wise app  �
 | 🧹 **Minimal retention** | A Wise token is deleted as soon as no live session uses it: after revocation, session expiry, or when Wise rejects it. |
 | 🔁 **OAuth hardening** | PKCE (S256), single-use login and authorization codes, rotating refresh tokens, redirect hosts limited to `claude.ai`, `claude.com`, `chatgpt.com` and localhost, so authorization codes can only reach apps you trust. |
 | 🚦 **Rate limiting** | The token forms (`/login`, `/sessions/login`) allow 20 attempts per IP every 15 minutes; OAuth endpoints use the MCP SDK's limits. |
+| 🔐 **HTTPS only** | The server refuses to start with a non-HTTPS `PUBLIC_URL`, and every page shows a red warning if it's opened over plain HTTP, so nobody pastes a Wise token on an unencrypted page. |
 | 🛡️ **Pages** | Strict CSP (`default-src 'none'`, `form-action` limited to the server and the client's own redirect origin), `X-Frame-Options: DENY`, `no-store`, no referrer. |
 
 > [!WARNING]

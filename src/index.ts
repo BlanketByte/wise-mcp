@@ -15,6 +15,10 @@ import { homePage, messagePage, sessionsLoginPage, sessionsPage } from "./auth/p
 
 const config = loadServerConfig();
 const publicUrl = new URL(config.PUBLIC_URL);
+if (publicUrl.protocol !== "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(publicUrl.hostname)) {
+  console.error(`❌ PUBLIC_URL must be https:// (got ${publicUrl.origin}). Wise tokens must never travel unencrypted: enable HTTPS for the domain and set PUBLIC_URL=https://…`);
+  process.exit(1);
+}
 const mcpUrl = new URL("/mcp", publicUrl);
 const iconUrl = new URL("/icon.png", publicUrl).href;
 const iconSvgUrl = new URL("/logo.svg", publicUrl).href;

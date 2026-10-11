@@ -242,6 +242,11 @@ check("icon.png / favicon.png served", (await fetch(`${B}/icon.png`)).headers.ge
 const types = await Promise.all(["/logo.svg", "/logo.png", "/apple-touch-icon.png"].map((p) => fetch(B + p).then((r) => r.headers.get("content-type"))));
 check("logo assets served", JSON.stringify(types) === JSON.stringify(["image/svg+xml", "image/png", "image/png"]), types.join(","));
 const home = await fetch(`${B}/`).then((r) => r.text());
+check("no HTTP warning on localhost", !home.includes('class="insecure"'));
+const viaHttp = await fetch(`${B}/`, { headers: { "x-forwarded-host": "wise.example.com", "x-forwarded-proto": "http" } }).then((r) => r.text());
+const viaHttps = await fetch(`${B}/`, { headers: { "x-forwarded-host": "wise.example.com", "x-forwarded-proto": "https" } }).then((r) => r.text());
+check("red warning when a real domain is served over HTTP", viaHttp.includes('class="insecure"') && viaHttp.includes("Don't paste your Wise token"));
+check("no warning over HTTPS", !viaHttps.includes('class="insecure"'));
 check("pages link the icon", /rel="icon" href="\/favicon\.ico\?v=[0-9a-f]{10}"/.test(home));
 const as: any = await fetch(`${B}/.well-known/oauth-authorization-server`).then((r) => r.json());
 const prm: any = await fetch(`${B}/.well-known/oauth-protected-resource/mcp`).then((r) => r.json());

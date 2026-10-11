@@ -115,6 +115,10 @@ function layout(title: string, body: string) {
   .sub { color:var(--muted); font-size:13.5px; margin:0; }
   .sub b, .sub a.brand { color:var(--fg); font-weight:600; text-decoration:none; }
   .sub a.brand:hover { text-decoration:underline; }
+  .insecure { display:flex; gap:12px; align-items:flex-start; margin:0 0 24px; padding:14px 16px; border-radius:16px;
+              background:#b42318; color:#fff; font-size:14px; line-height:1.5; box-shadow:0 0 0 4px rgba(180,35,24,.18); }
+  .insecure .ic { width:22px; height:22px; flex:none; margin-top:1px; }
+  .insecure strong { display:block; font-size:15px; }
   .notice { display:inline-flex; align-items:center; gap:6px; margin-top:10px; padding:5px 12px 5px 10px; border-radius:999px;
             background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-line); font-size:12.5px; font-weight:600; }
   .notice .ic { width:15px; height:15px; }
@@ -213,6 +217,9 @@ function card(inner: string, opts: { title: string; subtitle?: string; wide?: bo
   <footer>${icon("lock")}<span>Token encrypted at rest</span><span class="dot">·</span><a href="/sessions">Manage sessions</a><span class="dot">·</span><a class="gh" href="${REPO_URL}" target="_blank" rel="noopener">${icon("github")}Source</a></footer>
 </main>`;
 }
+
+/** Red banner shown on every page served over plain HTTP (except localhost). */
+export const INSECURE_BANNER = `<div class="insecure" role="alert">${icon("alert")}<div><strong>Not secure: this page uses HTTP, not HTTPS</strong>Don't paste your Wise token here: anyone on the network could read it. Turn on HTTPS for this domain (e.g. Let's Encrypt in Dokploy or Easypanel), then reload over https://.</div></div>`;
 
 const alert = (kind: "err" | "ok", html: string) =>
   `<div class="alert ${kind}" role="${kind === "err" ? "alert" : "status"}">${icon(kind === "err" ? "alert" : "check")}<div>${html}</div></div>`;
