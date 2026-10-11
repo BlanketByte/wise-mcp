@@ -2,19 +2,29 @@ name: Release
 
 # Push a tag like v1.2.0 (matching package.json) to publish to npm and the official MCP Registry,
 # and attach the Claude Desktop extension (.mcpb) to a GitHub release.
+# Every step is safe to repeat: run it manually with an existing tag to finish a release that stopped halfway.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release again (e.g. v1.0.0)
+        required: true
 
 permissions:
   contents: write
-  id-token: write # npm provenance
+  id-token: write # npm provenance + MCP Registry login
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -22,20 +32,37 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - name: Check tag matches package.json
-        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+        run: test "v$(node -p 'require("./package.json").version')" = "$TAG"
       - run: npm test
-      - run: npm publish --provenance --access public
+      - name: Publish to npm (skipped if this version is already there)
+        run: |
+          VERSION=${TAG#v}
+          if npm view "@blanketbyte/wise-mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "@blanketbyte/wise-mcp@$VERSION is already on npm"
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to the official MCP Registry
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${TAG#v}
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          # A new npm version can take a few minutes to become visible, and the registry checks it exists.
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null "https://registry.npmjs.org/@blanketbyte%2fwise-mcp/$VERSION" && break
+            echo "Waiting for npm to serve $VERSION…"; sleep 20
+          done
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
       - run: npm run mcpb
       - name: GitHub release with the .mcpb
-        run: gh release create "$GITHUB_REF_NAME" release/*.mcpb --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/*.mcpb --clobber
+          else
+            gh release create "$TAG" release/*.mcpb --title "$TAG" --generate-notes --verify-tag
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
