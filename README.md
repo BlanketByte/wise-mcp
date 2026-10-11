@@ -200,6 +200,8 @@ Optional env: `WRITES_ENABLED=false` for read-only, `MAX_TRANSFER_AMOUNT` for a 
 
 The container serves plain HTTP on port **3000**; put it behind anything that terminates HTTPS. State (sealed tokens, sessions) lives in **`/data`**.
 
+A prebuilt image is published with every release: **`ghcr.io/blanketbyte/wise-mcp:<version>`** (or `:latest`), for `linux/amd64` and `linux/arm64`. Use it instead of building from source wherever your platform accepts an image.
+
 ### Dokploy
 
 1. **DNS**: point a hostname (e.g. `wise.example.com`) at your Dokploy server.
@@ -303,7 +305,7 @@ The remote end-to-end test boots the server next to a mock Wise API and drives e
 
 ### Releasing
 
-Push a tag matching `package.json` (e.g. `v1.1.0`). The release workflow runs the tests, publishes `@blanketbyte/wise-mcp` to npm with provenance (trusted publishing over GitHub OIDC, no npm token stored anywhere), lists it in the [official MCP Registry](https://registry.modelcontextprotocol.io) from `server.json`, and attaches the `.mcpb` to a GitHub release. Before the first release, remove `"private": true` from `package.json`.
+Push a tag matching `package.json` (e.g. `v1.1.0`). The release workflow runs the tests, publishes `@blanketbyte/wise-mcp` to npm with provenance (trusted publishing over GitHub OIDC, no npm token stored anywhere), lists it in the [official MCP Registry](https://registry.modelcontextprotocol.io) from `server.json`, attaches the `.mcpb` to a GitHub release, and pushes the Docker image to `ghcr.io/blanketbyte/wise-mcp`. Before the first release, remove `"private": true` from `package.json`.
 
 <details>
 <summary>Project layout</summary>
