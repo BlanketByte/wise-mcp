@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { config } from "../config.js";
-import { PUBLIC_DIR, REPO_URL, WEBSITE } from "../meta.js";
+import { PUBLIC_DIR, REPO_URL, VERSION, WEBSITE } from "../meta.js";
 import type { Session } from "./store.js";
 
 /** Asset URL with a content hash, so browsers never show a stale logo after a deploy. */
@@ -194,6 +194,8 @@ function layout(title: string, body: string) {
   footer .ic { width:14px; height:14px; }
   footer a { color:var(--muted); }
   footer a.gh { display:inline-flex; align-items:center; gap:4px; }
+  footer a.ver { color:var(--faint); text-decoration:none; font-variant-numeric:tabular-nums; }
+  footer a.ver:hover { text-decoration:underline; }
   .dot { opacity:.5; }
 </style>
 </head>
@@ -214,7 +216,7 @@ function card(inner: string, opts: { title: string; subtitle?: string; wide?: bo
     </div>
     ${inner}
   </div>
-  <footer>${icon("lock")}<span>Token encrypted at rest</span><span class="dot">·</span><a href="/sessions">Manage sessions</a><span class="dot">·</span><a class="gh" href="${REPO_URL}" target="_blank" rel="noopener">${icon("github")}Source</a></footer>
+  <footer>${icon("lock")}<span>Token encrypted at rest</span><span class="dot">·</span><a href="/sessions">Manage sessions</a><span class="dot">·</span><a class="gh" href="${REPO_URL}" target="_blank" rel="noopener">${icon("github")}Source</a><span class="dot">·</span><a class="ver" href="${REPO_URL}/releases/tag/v${VERSION}" target="_blank" rel="noopener" title="Release notes">v${VERSION}</a></footer>
 </main>`;
 }
 
