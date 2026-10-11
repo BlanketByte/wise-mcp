@@ -10,7 +10,7 @@ Usage:
   wise-mcp serve      Run the remote HTTP server (OAuth, for Claude and ChatGPT custom connectors)
 
 Local mode env:
-  WISE_API_TOKEN       Wise personal API token (required)
+  WISE_API_TOKEN       Wise personal API token (required for tool calls)
   WRITES_ENABLED       false = read-only (default true; writes are always two-step)
   MAX_TRANSFER_AMOUNT  optional max per transfer, in the source currency
   DATA_DIR             where the audit log is written (default ~/.wise-mcp)

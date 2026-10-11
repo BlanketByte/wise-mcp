@@ -12,25 +12,39 @@ import { WiseService } from "./wise/service.js";
  * Local mode: speaks MCP over stdin/stdout for Claude Desktop, Claude Code, Cursor, etc.
  * No OAuth or sessions: the Wise token comes from WISE_API_TOKEN in the app's MCP config.
  * stdout carries the protocol, so everything else goes to stderr.
+ *
+ * Without a token the server still starts and lists its tools (so directories like Glama can
+ * inspect it); every tool call then explains how to set WISE_API_TOKEN.
  */
 const log = (msg: string) => process.stderr.write(`[wise-mcp] ${msg}\n`);
 
-const token = process.env.WISE_API_TOKEN?.trim();
-if (!token) {
-  log("WISE_API_TOKEN is not set. Create a token in Wise → Settings → API tokens and add it to this server's env.");
-  process.exit(1);
+const MISSING_TOKEN =
+  "WISE_API_TOKEN is not set. Create a token in Wise → Settings → API tokens and add it to this server's env in your MCP client config.";
+
+/** Stand-in client used when no token is configured: every Wise call explains what to do. */
+class MissingTokenClient extends WiseClient {
+  override async request<T>(): Promise<T> {
+    throw new Error(MISSING_TOKEN);
+  }
 }
 
-const client = new WiseClient(token, config.WISE_API_URL);
-try {
-  const me = await client.me();
-  log(`connected as Wise user ${me.id}`);
-} catch (err) {
-  if (err instanceof WiseAccessRevokedError || (err instanceof WiseApiError && err.status === 403)) {
-    log("Wise rejected WISE_API_TOKEN. Check it's copied fully and not revoked.");
-    process.exit(1);
+const token = process.env.WISE_API_TOKEN?.trim();
+let client: WiseClient;
+if (!token) {
+  log(`${MISSING_TOKEN} Starting anyway: tools are listed, but calls will fail until it's set.`);
+  client = new MissingTokenClient("", config.WISE_API_URL);
+} else {
+  client = new WiseClient(token, config.WISE_API_URL);
+  try {
+    const me = await client.me();
+    log(`connected as Wise user ${me.id}`);
+  } catch (err) {
+    if (err instanceof WiseAccessRevokedError || (err instanceof WiseApiError && err.status === 403)) {
+      log("Wise rejected WISE_API_TOKEN. Check it's copied fully and not revoked.");
+      process.exit(1);
+    }
+    log(`couldn't reach Wise yet (${err instanceof Error ? err.message : err}); tools will retry`);
   }
-  log(`couldn't reach Wise yet (${err instanceof Error ? err.message : err}); tools will retry`);
 }
 
 mkdirSync(config.DATA_DIR, { recursive: true });

@@ -75,8 +75,7 @@ const run = (env: Record<string, string>, args: string[] = []) =>
 // --- CLI basics --------------------------------------------------------------------
 const help = spawnSync(process.execPath, [tsx, cli, "--help"], { encoding: "utf8" });
 check("--help prints usage", help.status === 0 && help.stdout.includes("wise-mcp serve"));
-const missing = await run({});
-check("missing WISE_API_TOKEN exits with a clear message", missing.status === 1 && missing.stderr.includes("WISE_API_TOKEN is not set") && missing.stdout === "");
+
 const bad = await run({ WISE_API_TOKEN: randomUUID() });
 check("rejected token exits with a clear message", bad.status === 1 && bad.stderr.includes("Wise rejected WISE_API_TOKEN"));
 
@@ -109,6 +108,15 @@ const after = await client.callTool({ name: "list_balances", arguments: {} });
 check("revoked token → clear error", !!after.isError && text(after).includes("WISE_API_TOKEN"), text(after).slice(0, 80));
 revoked.delete(TOKEN);
 await client.close();
+
+// Without a token the server still starts (directories inspect it this way); calls explain what to set.
+const noTokenTransport = new StdioClientTransport({ command: process.execPath, args: [tsx, cli], env: { ...baseEnv }, stderr: "pipe" });
+const noToken = new Client({ name: "e2e", version: "1" });
+await noToken.connect(noTokenTransport);
+check("no token: server starts and lists all 14 tools", (await noToken.listTools()).tools.length === 14);
+const noTokenCall = await noToken.callTool({ name: "list_balances", arguments: {} });
+check("no token: calls explain how to set WISE_API_TOKEN", !!noTokenCall.isError && text(noTokenCall).includes("WISE_API_TOKEN is not set"));
+await noToken.close();
 
 const ro = await connect({ WRITES_ENABLED: "false" });
 const roTools = (await ro.listTools()).tools.map((t) => t.name);
