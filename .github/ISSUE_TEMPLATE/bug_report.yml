@@ -1,0 +1,44 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "**Don't paste Wise tokens, account numbers or real transactions.** Redact anything personal."
+  - type: dropdown
+    id: mode
+    attributes:
+      label: How do you run it?
+      options:
+        - Local (npx / MCP config)
+        - Claude Desktop extension (.mcpb)
+        - Self-hosted remote server
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      placeholder: Claude Desktop 1.x, Claude Code, ChatGPT, Codex, Cursor…
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: wise-mcp version
+      description: "`npx @blanketbyte/wise-mcp --version`, or the `/health` output when self-hosted"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error messages (redacted)
+      render: text

@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest a new tool or improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The question you'd ask your assistant, or the task you want it to handle.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: How do you imagine it working?
+  - type: input
+    id: endpoint
+    attributes:
+      label: Wise API endpoint (if you know it)
+      placeholder: e.g. GET /v1/profiles/{profileId}/...

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.BlanketByte/wise-mcp",
+  "description": "Wise balances, card payments, transfers and recipients, plus transfers you approve twice.",
+  "repository": {
+    "url": "https://github.com/BlanketByte/wise-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/BlanketByte/wise-mcp",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@blanketbyte/wise-mcp",
+      "version": "1.0.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "WISE_API_TOKEN",
+          "description": "Wise personal API token (Wise → Settings → API tokens). Full access to prepare transfers, Read only for answers.",
+          "format": "string",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "WRITES_ENABLED",
+          "description": "Set to false for read-only. Writes are always two-step and transfers are paid by you in the Wise app.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "MAX_TRANSFER_AMOUNT",
+          "description": "Optional max amount per transfer, in the source currency.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

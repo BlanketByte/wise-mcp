@@ -1,0 +1,72 @@
+{
+  "name": "@blanketbyte/wise-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Wise: read balances, card payments, transfers and recipients, and prepare transfers you approve twice. Runs locally (npx, for Claude, Codex, Cursor…) or as a remote connector for Claude and ChatGPT.",
+  "mcpName": "io.github.BlanketByte/wise-mcp",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "wise",
+    "transferwise",
+    "claude",
+    "chatgpt",
+    "codex",
+    "mcp-server",
+    "banking",
+    "payments"
+  ],
+  "homepage": "https://github.com/BlanketByte/wise-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/BlanketByte/wise-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlanketByte/wise-mcp.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "BlanketByte",
+    "url": "https://blanketbyte.com"
+  },
+  "type": "module",
+  "bin": {
+    "wise-mcp": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js serve",
+    "dev": "tsx watch src/cli.ts serve",
+    "typecheck": "tsc --noEmit",
+    "e2e": "tsx scripts/e2e.ts",
+    "e2e:stdio": "tsx scripts/e2e-stdio.ts",
+    "test": "npm run typecheck && npm run e2e && npm run e2e:stdio",
+    "mcpb": "bash scripts/build-mcpb.sh",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "express": "^5.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "private": true
+}

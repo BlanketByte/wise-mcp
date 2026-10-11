@@ -1,0 +1,11 @@
+# Local / self-managed run. On Dokploy, deploy the Dockerfile directly
+# (Traefik handles HTTPS) and mount a persistent volume at /data.
+services:
+  wise-mcp:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data   # Wise tokens (encrypted) + OAuth sessions
+    ports:
+      - "127.0.0.1:3000:3000"
