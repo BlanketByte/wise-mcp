@@ -303,7 +303,7 @@ The remote end-to-end test boots the server next to a mock Wise API and drives e
 
 ### Releasing
 
-Push a tag matching `package.json` (e.g. `v1.1.0`). The release workflow runs the tests, publishes `@blanketbyte/wise-mcp` to npm with provenance (needs an `NPM_TOKEN` secret), lists it in the [official MCP Registry](https://registry.modelcontextprotocol.io) from `server.json`, and attaches the `.mcpb` to a GitHub release. Before the first release, remove `"private": true` from `package.json`.
+Push a tag matching `package.json` (e.g. `v1.1.0`). The release workflow runs the tests, publishes `@blanketbyte/wise-mcp` to npm with provenance (trusted publishing over GitHub OIDC, no npm token stored anywhere), lists it in the [official MCP Registry](https://registry.modelcontextprotocol.io) from `server.json`, and attaches the `.mcpb` to a GitHub release. Before the first release, remove `"private": true` from `package.json`.
 
 <details>
 <summary>Project layout</summary>

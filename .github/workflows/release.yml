@@ -14,7 +14,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write # npm provenance + MCP Registry login
+  id-token: write # npm trusted publishing (no token) + provenance + MCP Registry login
 
 jobs:
   release:
@@ -29,7 +29,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          registry-url: https://registry.npmjs.org
+      # Trusted publishing (OIDC, no NPM_TOKEN) needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - run: npm install -g npm@11
       - run: npm ci
       - name: Check tag matches package.json
         run: test "v$(node -p 'require("./package.json").version')" = "$TAG"
@@ -42,8 +43,6 @@ jobs:
           else
             npm publish --provenance --access public
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to the official MCP Registry
         run: |
           VERSION=${TAG#v}
