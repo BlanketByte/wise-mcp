@@ -351,8 +351,12 @@ const call = async (token: string, name: string, args: object) => {
   const text = r.result?.content?.[0]?.text ?? JSON.stringify(r.error);
   let json: any;
   try { json = JSON.parse(text); } catch { /* error text */ }
+  // Every successful call must carry structuredContent (validated by the SDK against the tool's output schema).
+  if (r.result && !r.result.isError) structuredCalls.push(JSON.stringify(r.result.structuredContent) === JSON.stringify(json) ? "ok" : name);
+  if (r.error) structuredCalls.push(`${name}: ${r.error.message}`);
   return { isError: !!r.result?.isError, text, json };
 };
+const structuredCalls: string[] = [];
 const T = ref.access_token;
 const init = await rpc(T, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "e2e", version: "1" } });
 check("serverInfo has Wise title + icon", init.result?.serverInfo?.title === "Wise" && init.result?.serverInfo?.icons?.[0]?.src === `${B}/icon.png`);
@@ -360,15 +364,16 @@ const tools = await rpc(T, "tools/list", {});
 const names = (tools.result?.tools ?? []).map((t: any) => t.name).sort();
 const expectedTools = ["confirm_action", "discard_action", "get_exchange_rate", "get_quote", "get_recipient_requirements", "get_transactions", "get_transfer", "list_balances", "list_profiles", "list_recipients", "list_transfers", "prepare_cancel_transfer", "prepare_recipient", "prepare_transfer"];
 check("read + two-step write tools", JSON.stringify(names) === JSON.stringify(expectedTools), names.join(","));
+check("every tool has an output schema and described parameters", (tools.result?.tools ?? []).every((t: any) => t.outputSchema?.type === "object" && Object.values(t.inputSchema?.properties ?? {}).every((p: any) => p.description)), (tools.result?.tools ?? []).filter((t: any) => !t.outputSchema).map((t: any) => t.name).join(","));
 check("only confirm/discard are non-readOnly", (tools.result?.tools ?? []).filter((t: any) => t.annotations?.readOnlyHint !== true).map((t: any) => t.name).sort().join() === "confirm_action,discard_action");
 
 const profiles = await call(T, "list_profiles", {});
-check("list_profiles", !profiles.isError && profiles.json.length === 2 && profiles.json[1].name === "BlanketByte SRL");
+check("list_profiles", !profiles.isError && profiles.json.profiles.length === 2 && profiles.json.profiles[1].name === "BlanketByte SRL");
 
 const balances = await call(T, "list_balances", {});
-check("list_balances: all profiles, jars, empty hidden", !balances.isError && balances.json.length === 3 && balances.json.some((b: any) => b.kind === "jar" && b.name === "No More Debts" && b.amount === 15.71) && balances.json.some((b: any) => b.profile.id === BUSINESS && b.amount === 94.69));
+check("list_balances: all profiles, jars, empty hidden", !balances.isError && balances.json.balances.length === 3 && balances.json.balances.some((b: any) => b.kind === "jar" && b.name === "No More Debts" && b.amount === 15.71) && balances.json.balances.some((b: any) => b.profile.id === BUSINESS && b.amount === 94.69));
 const bizBal = await call(T, "list_balances", { profile: "business", include_empty: true });
-check("list_balances: profile by type + include_empty", !bizBal.isError && bizBal.json.length === 2 && bizBal.json.every((b: any) => b.profile.id === BUSINESS));
+check("list_balances: profile by type + include_empty", !bizBal.isError && bizBal.json.balances.length === 2 && bizBal.json.balances.every((b: any) => b.profile.id === BUSINESS));
 check("unknown profile → helpful error", (await call(T, "list_balances", { profile: "nope" })).text.includes(`${PERSONAL} (PERSONAL`));
 
 const txs = await call(T, "get_transactions", { limit: 4 });
@@ -409,7 +414,7 @@ const quote = await call(T, "get_quote", { source_currency: "eur", target_curren
 check("get_quote uses the balance pay-in price", !quote.isError && quote.json.fee.amount === 0.5 && quote.json.target.currency === "RON" && quote.json.delivery === "by <strong>Monday</strong>");
 check("get_quote needs exactly one amount", (await call(T, "get_quote", { source_currency: "EUR", target_currency: "RON" })).isError);
 const reqs = await call(T, "get_recipient_requirements", { currency: "EUR" });
-check("get_recipient_requirements", !reqs.isError && reqs.json[0].type === "iban" && reqs.json[0].fields.some((f: any) => f.key === "IBAN" && f.required) && headersSeen.minor === "1");
+check("get_recipient_requirements", !reqs.isError && reqs.json.options[0].type === "iban" && reqs.json.options[0].fields.some((f: any) => f.key === "IBAN" && f.required) && headersSeen.minor === "1");
 
 const prepRcp = await call(T, "prepare_recipient", { currency: "EUR", type: "iban", account_holder_name: "Ana Pop", details: { legalType: "PRIVATE", IBAN: "DE89370400440532013000" } });
 check("prepare_recipient returns a code, creates nothing", !prepRcp.isError && /^RCP-[0-9A-F]{8}$/.test(prepRcp.json.confirmation_code) && prepRcp.json.summary.includes("Ana Pop") && newRecipients.length === 0);
@@ -453,6 +458,8 @@ check("quotes ask for BALANCE pricing", quoteBodies.length > 0 && quoteBodies.ev
 check("summary shows the balance price", prep.json.quote.pay_in === "BALANCE" && prep.json.quote.fee.amount === 0.5 && prep.json.summary.includes("when paid from your Wise balance") && prep.json.quote.pay_in_options.length === 2 && prep.json.quote.pay_in_options[0].pay_in === "BALANCE", prep.json.summary);
 check("unpaid bank-transfer price is accepted and explained", !conf.isError && created[0].targetValue === 99.2 && conf.json.wise_shows_until_paid.startsWith("99.20 EUR") && conf.json.note.includes("re-prices") && conf.json.note.includes("99.50 EUR"), JSON.stringify(conf.json));
 check("paid transfers can't be cancelled", (await call(T, "prepare_cancel_transfer", { transfer_id: 7000 })).text.includes("incoming_payment_waiting"));
+
+check("every successful call returned valid structuredContent", structuredCalls.length > 20 && structuredCalls.every((x) => x === "ok"), structuredCalls.filter((x) => x !== "ok").join("; "));
 
 const auditLog = readFileSync(path.join(DATA, "audit.log"), "utf8");
 check("audit log records every write", ["recipient_prepared", "recipient_created", "transfer_prepared", "transfer_created", "action_discarded", "transfer_cancelled", "transfer_amount_mismatch"].every((e) => auditLog.includes(`"${e}"`)) && !auditLog.includes(ownerToken));

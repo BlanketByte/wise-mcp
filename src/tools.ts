@@ -7,9 +7,12 @@ import { config } from "./config.js";
 import { ACTIVITY_TYPES, UNPAID_PRICE_NOTE, type WiseService } from "./wise/service.js";
 import { WiseAccessRevokedError } from "./wise/client.js";
 import { storePending, takePending, discardPending } from "./pending.js";
+import { outputs } from "./schemas.js";
 
-const ok = (data: unknown) => ({
-  content: [{ type: "text" as const, text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }],
+/** Every tool returns an object: as text (for older clients) and as structuredContent matching its output schema. */
+const ok = (data: Record<string, unknown>) => ({
+  content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+  structuredContent: data,
 });
 const fail = (message: string) => ({ content: [{ type: "text" as const, text: message }], isError: true });
 
@@ -53,9 +56,10 @@ export function registerTools(
       title: "List Wise profiles",
       description: "List the Wise profiles (personal and business) this token can access, with id, type and name.",
       inputSchema: {},
+      outputSchema: outputs.list_profiles,
       annotations: READ,
     },
-    async () => safe(async () => ok(await wise.listProfiles())),
+    async () => safe(async () => ok({ profiles: await wise.listProfiles() })),
   );
 
   server.registerTool(
@@ -69,10 +73,11 @@ export function registerTools(
         profile: profileArg.describe('Profile id, "personal", "business", part of the name, or "all" (default)'),
         include_empty: z.boolean().optional().describe("Also list balances with 0"),
       },
+      outputSchema: outputs.list_balances,
       annotations: READ,
     },
     async ({ profile, include_empty }) =>
-      safe(async () => ok(await wise.listBalances(await wise.resolveProfiles(profile), include_empty ?? false))),
+      safe(async () => ok({ balances: await wise.listBalances(await wise.resolveProfiles(profile), include_empty ?? false) })),
   );
 
   server.registerTool(
@@ -104,6 +109,7 @@ export function registerTools(
         limit: z.number().int().min(1).max(500).optional().describe("Max items (default 50)"),
         cursor: z.string().optional().describe("next_cursor from a previous call"),
       },
+      outputSchema: outputs.get_transactions,
       annotations: READ,
     },
     async (args) =>
@@ -139,6 +145,7 @@ export function registerTools(
         search: z.string().optional().describe("Case-insensitive match on reference or recipient name"),
         limit: z.number().int().min(1).max(200).optional().describe("Max transfers (default 25)"),
       },
+      outputSchema: outputs.list_transfers,
       annotations: READ,
     },
     async (args) =>
@@ -155,6 +162,7 @@ export function registerTools(
       title: "Get a Wise transfer",
       description: "Details of one transfer: amounts in both currencies, rate, reference, status, created date and recipient.",
       inputSchema: { id: z.coerce.number().int().describe("Transfer id (from list_transfers or a TRANSFER activity's resource.id)") },
+      outputSchema: outputs.get_transfer,
       annotations: READ,
     },
     async ({ id }) => safe(async () => ok(await wise.getTransfer(id))),
@@ -170,6 +178,7 @@ export function registerTools(
         currency: currency.optional().describe("Only recipients in this currency, e.g. EUR"),
         search: z.string().optional().describe("Case-insensitive match on name or account"),
       },
+      outputSchema: outputs.list_recipients,
       annotations: READ,
     },
     async ({ profile, currency, search }) =>
@@ -191,6 +200,7 @@ export function registerTools(
         target: currency.describe("Target currency, e.g. RON"),
         at: date.optional().describe("Historic rate at this date/time (default: now)"),
       },
+      outputSchema: outputs.get_exchange_rate,
       annotations: READ,
     },
     async ({ source, target, at }) => safe(async () => ok(await wise.getRate(source, target, at))),
@@ -230,6 +240,7 @@ function registerWriteTools(
         recipient_id: z.number().int().optional().describe("Saved recipient, for an exact price and delivery time"),
         profile: profileArg,
       },
+      outputSchema: outputs.get_quote,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async (a) =>
@@ -261,12 +272,13 @@ function registerWriteTools(
         amount: z.number().positive().optional().describe("Typical amount (default 100); some routes depend on it"),
         profile: profileArg,
       },
+      outputSchema: outputs.get_recipient_requirements,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async (a) =>
       safe(async () => {
         const profile = await wise.resolveProfile(a.profile);
-        return ok(await wise.recipientRequirements(profile, a.source_currency ?? a.currency, a.currency, a.amount ?? 100));
+        return ok({ options: await wise.recipientRequirements(profile, a.source_currency ?? a.currency, a.currency, a.amount ?? 100) });
       }),
   );
 
@@ -286,6 +298,7 @@ function registerWriteTools(
         owned_by_me: z.boolean().optional().describe("True if this is the user's own account elsewhere"),
         profile: profileArg,
       },
+      outputSchema: outputs.prepare_recipient,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (a) =>
@@ -325,6 +338,7 @@ function registerWriteTools(
           .describe("Extra fields Wise requires on some routes, e.g. transferPurpose, sourceOfFunds (a previous attempt lists them)"),
         profile: profileArg.describe("Default: the profile the recipient belongs to"),
       },
+      outputSchema: outputs.prepare_transfer,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async (a) =>
@@ -407,6 +421,7 @@ function registerWriteTools(
       title: "Prepare cancelling a Wise transfer",
       description: `Step 1 of 2 to cancel a transfer that hasn't been paid yet (status incoming_payment_waiting). ${TWO_STEP}`,
       inputSchema: { transfer_id: z.coerce.number().int().describe("Id of the unpaid transfer (from list_transfers or prepare_transfer's confirmation)") },
+      outputSchema: outputs.prepare_cancel_transfer,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ transfer_id }) =>
@@ -433,6 +448,7 @@ function registerWriteTools(
         "explicitly approved that exact summary in their latest message. Codes are single-use and expire after 10 minutes. " +
         "Transfers are created unpaid: the user pays them in the Wise app.",
       inputSchema: { confirmation_code: z.string().describe("Code from a prepare_* tool, e.g. TX-1A2B3C4D") },
+      outputSchema: outputs.confirm_action,
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },
     async ({ confirmation_code }) =>
@@ -508,12 +524,17 @@ function registerWriteTools(
       title: "Discard a prepared Wise action",
       description: "Throw away an action prepared with a prepare_* tool, before it's confirmed.",
       inputSchema: { confirmation_code: z.string().describe("Code from a prepare_* tool to throw away, e.g. TX-1A2B3C4D") },
+      outputSchema: outputs.discard_action,
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async ({ confirmation_code }) => {
       const removed = discardPending(sessionKey, confirmation_code);
       if (removed) await log("action_discarded", { code: confirmation_code });
-      return ok(removed ? "Discarded. Nothing was sent to Wise." : "No pending action with that code.");
+      return ok(
+        removed
+          ? { status: "discarded", message: "Discarded. Nothing was sent to Wise." }
+          : { status: "not_found", message: "No pending action with that code." },
+      );
     },
   );
 }

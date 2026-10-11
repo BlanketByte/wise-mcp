@@ -98,7 +98,7 @@ check("serverInfo: title + embedded icon", info?.title === "Wise" && String(info
 const tools = (await client.listTools()).tools.map((t) => t.name);
 check("all 14 tools available", tools.length === 14 && tools.includes("prepare_transfer") && tools.includes("confirm_action"), tools.length + " tools");
 const bal = await client.callTool({ name: "list_balances", arguments: {} });
-check("list_balances", !bal.isError && JSON.parse(text(bal))[0].amount === 120.5);
+check("list_balances", !bal.isError && JSON.parse(text(bal)).balances[0].amount === 120.5 && (bal.structuredContent as any)?.balances?.[0]?.amount === 120.5);
 const tx = await client.callTool({ name: "get_transactions", arguments: { limit: 5 } });
 check("get_transactions", !tx.isError && JSON.parse(text(tx)).transactions[0].title === "Coop");
 const prep = await client.callTool({ name: "prepare_transfer", arguments: { recipient_id: 501, send_amount: 10, reference: "pizza" } });
