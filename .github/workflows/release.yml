@@ -37,7 +37,7 @@ jobs:
       - name: Publish to npm (skipped if this version is already there)
         run: |
           VERSION=${TAG#v}
-          if npm view "@blanketbyte/wise-mcp@$VERSION" version >/dev/null 2>&1; then
+          if curl -sf -o /dev/null "https://registry.npmjs.org/@blanketbyte%2fwise-mcp/$VERSION"; then
             echo "@blanketbyte/wise-mcp@$VERSION is already on npm"
           else
             npm publish --provenance --access public
