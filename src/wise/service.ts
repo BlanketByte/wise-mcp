@@ -398,8 +398,11 @@ function mapQuote(q: any) {
     estimated_delivery: o?.estimatedDelivery,
     delivery: o?.formattedEstimatedDelivery,
     notices: (q.notices ?? []).map((n: any) => stripTags(n.text)).filter(Boolean),
-    // Price per pay-in method: an unpaid transfer shows the BANK_TRANSFER one until it's paid.
-    pay_in_options: options.map((x) => ({ pay_in: x.payIn, fee: x.fee?.total, target_amount: x.targetAmount })),
+    // Balance vs bank transfer price: an unpaid transfer shows the BANK_TRANSFER one until it's paid. (Cards and
+    // wallets are left out: there can be ~20 of them, and you pay these transfers in the Wise app anyway.)
+    pay_in_options: options
+      .filter((x) => x.payIn === "BALANCE" || x.payIn === "BANK_TRANSFER")
+      .map((x) => ({ pay_in: x.payIn, fee: x.fee?.total, target_amount: x.targetAmount })),
   };
 }
 
