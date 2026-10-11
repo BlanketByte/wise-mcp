@@ -215,7 +215,15 @@ export class WiseService {
   async getTransfer(id: number) {
     const t = await this.client.get<any>(`/v1/transfers/${id}`);
     const recipient = t.targetAccount ? await this.getRecipient(t.targetAccount).catch(() => undefined) : undefined;
-    return { ...mapTransfer(t), recipient, rate: t.rate, quote_id: t.quoteUuid ?? t.quote, has_active_issues: t.hasActiveIssues, raw_status: t.status };
+    return {
+      ...mapTransfer(t),
+      recipient,
+      rate: t.rate,
+      quote_id: t.quoteUuid ?? t.quote,
+      has_active_issues: t.hasActiveIssues,
+      raw_status: t.status,
+      note: t.status === "incoming_payment_waiting" ? UNPAID_PRICE_NOTE : undefined,
+    };
   }
 
   // --- Recipients -----------------------------------------------------------------
@@ -253,8 +261,7 @@ export class WiseService {
       sourceAmount: q.sourceAmount ?? null,
       targetAmount: q.targetAmount ?? null,
       targetAccount: q.targetAccount,
-      // Without this Wise prices the transfer with its default pay-in (often a bank transfer, with a fee), even
-      // though the user pays from their Wise balance in the app. BALANCE goes first and the transfer uses it.
+      // The user pays from their Wise balance in the app: list (and show) that price first.
       preferredPayIn: "BALANCE",
     });
     return mapQuote(raw);
@@ -344,6 +351,10 @@ function matches(a: ReturnType<typeof mapActivity>, search: string) {
   return [a.title, a.description, a.type, a.secondary_text, a.amount_text].some((v) => v?.toLowerCase().includes(search));
 }
 
+/** Wise prices a transfer made via the API as a bank-transfer pay-in until it's paid (seen: 1 EUR → 0.05 EUR, fee 0.95). */
+export const UNPAID_PRICE_NOTE =
+  "Amounts of an unpaid transfer are Wise's bank-transfer price (with its fee). Paying it from the Wise balance in the app re-prices it, e.g. without that fee.";
+
 function mapTransfer(t: any) {
   return {
     id: t.id,
@@ -372,9 +383,8 @@ function mapRecipient(r: any) {
 
 function mapQuote(q: any) {
   const options: any[] = (q.paymentOptions ?? []).filter((o: any) => !o.disabled && (!q.payOut || o.payOut === q.payOut));
-  // Show the price of the pay-in Wise will use for the transfer: the quote's own payIn, otherwise the first option
-  // (createQuote asks for BALANCE first). Showing another option's price once hid a 0.95 EUR fee.
-  const o = options.find((x) => q.payIn && x.payIn === q.payIn) ?? options[0];
+  // The user pays in the Wise app, usually from the balance: show that price (createQuote lists BALANCE first).
+  const o = options.find((x) => x.payIn === "BALANCE") ?? options[0];
   return {
     id: String(q.id),
     source: { amount: o?.sourceAmount ?? q.sourceAmount, currency: q.sourceCurrency },
@@ -388,6 +398,8 @@ function mapQuote(q: any) {
     estimated_delivery: o?.estimatedDelivery,
     delivery: o?.formattedEstimatedDelivery,
     notices: (q.notices ?? []).map((n: any) => stripTags(n.text)).filter(Boolean),
+    // Price per pay-in method: an unpaid transfer shows the BANK_TRANSFER one until it's paid.
+    pay_in_options: options.map((x) => ({ pay_in: x.payIn, fee: x.fee?.total, target_amount: x.targetAmount })),
   };
 }
 

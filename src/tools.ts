@@ -4,7 +4,7 @@ import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { config } from "./config.js";
-import { ACTIVITY_TYPES, type WiseService } from "./wise/service.js";
+import { ACTIVITY_TYPES, UNPAID_PRICE_NOTE, type WiseService } from "./wise/service.js";
 import { WiseAccessRevokedError } from "./wise/client.js";
 import { storePending, takePending, discardPending } from "./pending.js";
 
@@ -366,6 +366,7 @@ function registerWriteTools(
           (quote.fee ? `, fee ${money(quote.fee.amount, sourceCurrency)}` : "") +
           (sourceCurrency !== recipient.currency ? `, rate ${quote.rate}` : "") +
           (quote.pay_in && quote.pay_in !== "BALANCE" ? `, priced for paying by ${quote.pay_in}` : "") +
+          (quote.pay_in === "BALANCE" ? ", when paid from your Wise balance" : "") +
           (details.reference ? `, reference "${details.reference}"` : "") +
           (quote.delivery ? `, ${stripHtml(quote.delivery)}` : "");
         const { code, expiresAt } = storePending(
@@ -377,7 +378,7 @@ function registerWriteTools(
             targetAccount: recipient.id,
             customerTransactionId: randomUUID(),
             details,
-            expected: { amount: quote.target.amount, currency: recipient.currency },
+            expected: { amount: quote.target.amount, currency: recipient.currency, options: quote.pay_in_options.map((o) => Number(o.target_amount)) },
           },
           summary,
         );
@@ -439,11 +440,12 @@ function registerWriteTools(
         try {
           if (a.kind === "transfer") {
             const t = await wise.createTransfer({ targetAccount: a.targetAccount, quoteId: a.quoteId, customerTransactionId: a.customerTransactionId, details: a.details });
-            // Never leave the user with a transfer they didn't approve (e.g. priced with another pay-in and a different
-            // fee): it's still unpaid, so cancel it and say what happened. Wise's transfer source amount excludes the
-            // fee, so compare what the recipient gets.
+            // Wise shows a new (unpaid) transfer at the bank-transfer price of its quote and re-prices it when it's paid
+            // from the balance. Anything that isn't one of this quote's prices is a transfer the user didn't approve:
+            // it's still unpaid, so cancel it and say what happened.
             const got = { amount: Number(t.target.amount), currency: String(t.target.currency ?? "").toUpperCase() };
-            if (Math.abs(got.amount - a.expected.amount) > 0.005 || got.currency !== a.expected.currency.toUpperCase()) {
+            const close = (x: number) => Math.abs(got.amount - x) <= 0.005;
+            if (got.currency !== a.expected.currency.toUpperCase() || !(close(a.expected.amount) || a.expected.options.some(close))) {
               const cancelled = await wise.cancelTransfer(t.id).then(
                 (c) => c.status,
                 (err) => `cancel failed: ${err instanceof Error ? err.message : err}`,
@@ -472,7 +474,13 @@ function registerWriteTools(
               transfer_id: t.id,
               wise_status: t.status,
               summary: p.summary,
-              next_step: "Open the Wise app (or wise.com): the transfer is waiting for you to pay. No money has moved yet.",
+              ...(close(a.expected.amount)
+                ? {}
+                : {
+                    wise_shows_until_paid: `${money(got.amount, got.currency)} to the recipient (Wise's bank-transfer price)`,
+                    note: `${UNPAID_PRICE_NOTE} Paid from the balance, the recipient gets the approved ${money(a.expected.amount, a.expected.currency)}.`,
+                  }),
+              next_step: "Open the Wise app (or wise.com) and pay it from your Wise balance. No money has moved yet.",
             });
           }
           if (a.kind === "recipient") {

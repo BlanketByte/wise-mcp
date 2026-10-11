@@ -152,8 +152,9 @@ const mock = createServer(async (req, res) => {
     if (!q || q.used) return send(422, { errors: [{ code: "quote.invalid", message: "Quote is invalid or already used" }] });
     q.used = true;
     const t = { id: 8000 + created.length, user, targetAccount: body.targetAccount, quoteUuid: q.id, customerTransactionId: body.customerTransactionId, status: "incoming_payment_waiting", reference: body.details?.reference ?? "", details: body.details, rate: q.rate, created: "2026-10-11 18:00:00", sourceCurrency: q.sourceCurrency, sourceValue: 0, targetCurrency: q.targetCurrency, targetValue: 0 };
-    // Priced with the quote's first usable pay-in; like Wise, sourceValue excludes the fee.
-    const o = q.paymentOptions.find((x: any) => !x.disabled && x.payOut === q.payOut);
+    // Like Wise: an API-created transfer is priced as a BANK_TRANSFER pay-in until paid, whatever the quote lists
+    // first; sourceValue excludes the fee.
+    const o = q.paymentOptions.find((x: any) => !x.disabled && x.payIn === "BANK_TRANSFER" && x.payOut === q.payOut);
     Object.assign(t, { sourceValue: Math.round((o.sourceAmount - o.fee.total) * 100) / 100, targetValue: o.targetAmount });
     // Simulates Wise pricing a transfer differently from what the user approved.
     if (q.sourceAmount === 1.23) Object.assign(t, { sourceValue: 0.05, targetValue: 0.05 });
@@ -449,7 +450,8 @@ const oddConf = await call(T, "confirm_action", { confirmation_code: odd.json.co
 const oddT = created[created.length - 1];
 check("amount mismatch → transfer auto-cancelled, clear error", oddConf.isError && oddT.targetValue === 0.05 && oddT.status === "cancelled" && oddConf.text.includes("recipient gets 0.05 EUR instead of the approved 0.73 EUR") && oddConf.text.includes("cancelled automatically"), oddConf.text);
 check("quotes ask for BALANCE pricing", quoteBodies.length > 0 && quoteBodies.every((b) => b.preferredPayIn === "BALANCE"));
-check("transfer gets exactly what the summary promised", created[0].targetValue === prep.json.quote.target.amount && prep.json.quote.pay_in === "BALANCE" && prep.json.quote.fee.amount === 0.5, JSON.stringify(prep.json.quote));
+check("summary shows the balance price", prep.json.quote.pay_in === "BALANCE" && prep.json.quote.fee.amount === 0.5 && prep.json.summary.includes("when paid from your Wise balance") && prep.json.quote.pay_in_options.length === 2, prep.json.summary);
+check("unpaid bank-transfer price is accepted and explained", !conf.isError && created[0].targetValue === 99.2 && conf.json.wise_shows_until_paid.startsWith("99.20 EUR") && conf.json.note.includes("re-prices") && conf.json.note.includes("99.50 EUR"), JSON.stringify(conf.json));
 check("paid transfers can't be cancelled", (await call(T, "prepare_cancel_transfer", { transfer_id: 7000 })).text.includes("incoming_payment_waiting"));
 
 const auditLog = readFileSync(path.join(DATA, "audit.log"), "utf8");
