@@ -432,7 +432,7 @@ function registerWriteTools(
         }
         const summary =
           `Cancel transfer ${t.id}: ${money(t.source.amount, t.source.currency)} → ${t.recipient?.name ?? `recipient ${t.recipient_id}`} ` +
-          `(${money(t.target.amount, t.target.currency)})${t.reference ? `, reference "${t.reference}"` : ""}, created ${t.created}`;
+          `(${money(t.target.amount, t.target.currency)}, Wise's price until paid)${t.reference ? `, reference "${t.reference}"` : ""}, created ${t.created}`;
         const { code, expiresAt } = storePending(sessionKey, { kind: "cancel_transfer", transferId: t.id }, summary);
         await log("cancel_prepared", { code, summary });
         return ok({ status: "awaiting_user_confirmation", summary, confirmation_code: code, expires_at: expiresAt.toISOString() });
