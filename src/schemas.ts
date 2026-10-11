@@ -76,6 +76,7 @@ export const outputs = {
           "Held for pending transactions (mostly card payments not settled yet). Already deducted from amount: not extra money",
         ),
         total_worth: num.describe("Only when it differs from amount, e.g. invested balances"),
+        note: str,
       }),
     ),
   },

@@ -182,7 +182,7 @@ const mock = createServer(async (req, res) => {
       return send(200, types === "SAVINGS"
         ? [{ id: 3, type: "SAVINGS", name: "No More Debts", currency: "EUR", amount: { value: 15.71, currency: "EUR" }, reservedAmount: { value: 0 }, totalWorth: { value: 15.71 } }]
         : [
-            { id: 1, type: "STANDARD", name: null, currency: "EUR", amount: { value: 559.38, currency: "EUR" }, reservedAmount: { value: 0 }, totalWorth: { value: 559.38 } },
+            { id: 1, type: "STANDARD", name: null, currency: "EUR", amount: { value: 559.38, currency: "EUR" }, reservedAmount: { value: 153.7 }, totalWorth: { value: 559.38 } },
             { id: 2, type: "STANDARD", name: null, currency: "USD", amount: { value: 0, currency: "USD" }, reservedAmount: { value: 0 }, totalWorth: { value: 0 } },
           ]);
     }
@@ -372,6 +372,7 @@ check("list_profiles", !profiles.isError && profiles.json.profiles.length === 2 
 
 const balances = await call(T, "list_balances", {});
 check("list_balances: all profiles, jars, empty hidden", !balances.isError && balances.json.balances.length === 3 && balances.json.balances.some((b: any) => b.kind === "jar" && b.name === "No More Debts" && b.amount === 15.71) && balances.json.balances.some((b: any) => b.profile.id === BUSINESS && b.amount === 94.69));
+check("reserved money is explained in the result", balances.json.balances.some((b: any) => b.reserved === 153.7 && b.note?.includes("already deducted from amount") && b.note.includes("559.38 EUR is available")) && balances.json.balances.filter((b: any) => !b.reserved).every((b: any) => !b.note));
 const bizBal = await call(T, "list_balances", { profile: "business", include_empty: true });
 check("list_balances: profile by type + include_empty", !bizBal.isError && bizBal.json.balances.length === 2 && bizBal.json.balances.every((b: any) => b.profile.id === BUSINESS));
 check("unknown profile → helpful error", (await call(T, "list_balances", { profile: "nope" })).text.includes(`${PERSONAL} (PERSONAL`));

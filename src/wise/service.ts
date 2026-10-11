@@ -137,6 +137,11 @@ export class WiseService {
           amount: b.amount?.value,
           reserved: b.reservedAmount?.value || undefined,
           total_worth: b.totalWorth?.value !== b.amount?.value ? b.totalWorth?.value : undefined,
+          // Stated in the data itself: assistants read values more reliably than schema descriptions.
+          note: b.reservedAmount?.value
+            ? `${b.reservedAmount.value} ${b.currency} is held for pending payments and already deducted from amount: ` +
+              `${b.amount?.value} ${b.currency} is available now. Don't add the reserved amount to the total.`
+            : undefined,
         }));
       }),
     );
