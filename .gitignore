@@ -6,3 +6,4 @@ data-*
 build
 release
 *.tgz
+.DS_Store

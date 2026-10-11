@@ -5,19 +5,32 @@
   "version": "1.0.0",
   "description": "Read your Wise balances, card payments, transfers and recipients, and prepare transfers you approve twice.",
   "long_description": "Connects Claude to your Wise account with a personal API token. Read balances, Jars, card payments, transfers, recipients and exchange rates across your personal and business profiles. With a Full access token, Claude can also prepare transfers, recipients and cancellations: every change needs your explicit approval in chat, and transfers are created unpaid, so money only moves when you pay them in the Wise app. Independent project by BlanketByte, not operated by Wise.",
-  "author": { "name": "BlanketByte", "url": "https://blanketbyte.com" },
+  "author": {
+    "name": "BlanketByte",
+    "url": "https://blanketbyte.com"
+  },
   "homepage": "https://github.com/BlanketByte/wise-mcp",
-  "repository": { "type": "git", "url": "https://github.com/BlanketByte/wise-mcp.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BlanketByte/wise-mcp.git"
+  },
   "support": "https://github.com/BlanketByte/wise-mcp/issues",
   "license": "MIT",
   "icon": "icon.png",
-  "keywords": ["wise", "banking", "payments", "transfers"],
+  "keywords": [
+    "wise",
+    "banking",
+    "payments",
+    "transfers"
+  ],
   "server": {
     "type": "node",
     "entry_point": "dist/cli.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/dist/cli.js"],
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ],
       "env": {
         "WISE_API_TOKEN": "${user_config.wise_api_token}",
         "WRITES_ENABLED": "${user_config.writes_enabled}",
@@ -26,20 +39,62 @@
     }
   },
   "tools": [
-    { "name": "list_profiles", "description": "Your Wise profiles (personal and business)" },
-    { "name": "list_balances", "description": "Balances in every currency plus Jars" },
-    { "name": "get_transactions", "description": "Card payments, transfers, conversions and more, with filters" },
-    { "name": "list_transfers", "description": "Transfers with both currencies, reference and recipient" },
-    { "name": "get_transfer", "description": "One transfer in detail" },
-    { "name": "list_recipients", "description": "Saved recipients" },
-    { "name": "get_exchange_rate", "description": "Mid-market rate, now or historic" },
-    { "name": "get_quote", "description": "Price a transfer without creating anything" },
-    { "name": "get_recipient_requirements", "description": "Bank details Wise needs for a currency" },
-    { "name": "prepare_transfer", "description": "Step 1: quote and check a transfer, returns a confirmation code" },
-    { "name": "prepare_recipient", "description": "Step 1: validate a new recipient" },
-    { "name": "prepare_cancel_transfer", "description": "Step 1: cancel an unpaid transfer" },
-    { "name": "confirm_action", "description": "Step 2: perform a prepared action after your approval" },
-    { "name": "discard_action", "description": "Throw a prepared action away" }
+    {
+      "name": "list_profiles",
+      "description": "Your Wise profiles (personal and business)"
+    },
+    {
+      "name": "list_balances",
+      "description": "Balances in every currency plus Jars"
+    },
+    {
+      "name": "get_transactions",
+      "description": "Card payments, transfers, conversions and more, with filters"
+    },
+    {
+      "name": "list_transfers",
+      "description": "Transfers with both currencies, reference and recipient"
+    },
+    {
+      "name": "get_transfer",
+      "description": "One transfer in detail"
+    },
+    {
+      "name": "list_recipients",
+      "description": "Saved recipients"
+    },
+    {
+      "name": "get_exchange_rate",
+      "description": "Mid-market rate, now or historic"
+    },
+    {
+      "name": "get_quote",
+      "description": "Price a transfer without creating anything"
+    },
+    {
+      "name": "get_recipient_requirements",
+      "description": "Bank details Wise needs for a currency"
+    },
+    {
+      "name": "prepare_transfer",
+      "description": "Step 1: quote and check a transfer, returns a confirmation code"
+    },
+    {
+      "name": "prepare_recipient",
+      "description": "Step 1: validate a new recipient"
+    },
+    {
+      "name": "prepare_cancel_transfer",
+      "description": "Step 1: cancel an unpaid transfer"
+    },
+    {
+      "name": "confirm_action",
+      "description": "Step 2: perform a prepared action after your approval"
+    },
+    {
+      "name": "discard_action",
+      "description": "Throw a prepared action away"
+    }
   ],
   "user_config": {
     "wise_api_token": {
@@ -63,7 +118,13 @@
     }
   },
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"],
-    "runtimes": { "node": ">=20.0.0" }
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
   }
 }
