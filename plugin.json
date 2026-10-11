@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "wise-mcp",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Wise balances, card payments, transfers and recipients in your AI assistant, plus transfers you approve twice. Needs a Wise API token in WISE_API_TOKEN. Unofficial, not affiliated with Wise.",
   "author": {
     "name": "BlanketByte",

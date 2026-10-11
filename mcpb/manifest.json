@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "wise-mcp",
   "display_name": "Wise",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Read your Wise balances, card payments, transfers and recipients, and prepare transfers you approve twice.",
   "long_description": "Connects Claude to your Wise account with a personal API token. Read balances, Jars, card payments, transfers, recipients and exchange rates across your personal and business profiles. With a Full access token, Claude can also prepare transfers, recipients and cancellations: every change needs your explicit approval in chat, and transfers are created unpaid, so money only moves when you pay them in the Wise app. Independent project by BlanketByte, not operated by Wise.",
   "author": {
