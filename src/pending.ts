@@ -15,7 +15,7 @@ export type PendingAction =
       targetAccount: number;
       customerTransactionId: string;
       details: Record<string, unknown>;
-      /** What the user approved: the transfer Wise creates must match it. */
+      /** What the user approved the recipient gets: the transfer Wise creates must match it. */
       expected: { amount: number; currency: string };
     }
   | {

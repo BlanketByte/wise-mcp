@@ -253,6 +253,9 @@ export class WiseService {
       sourceAmount: q.sourceAmount ?? null,
       targetAmount: q.targetAmount ?? null,
       targetAccount: q.targetAccount,
+      // Without this Wise prices the transfer with its default pay-in (often a bank transfer, with a fee), even
+      // though the user pays from their Wise balance in the app. BALANCE goes first and the transfer uses it.
+      preferredPayIn: "BALANCE",
     });
     return mapQuote(raw);
   }
@@ -369,8 +372,9 @@ function mapRecipient(r: any) {
 
 function mapQuote(q: any) {
   const options: any[] = (q.paymentOptions ?? []).filter((o: any) => !o.disabled && (!q.payOut || o.payOut === q.payOut));
-  // You pay in the Wise app, usually from your balance: show that option's price.
-  const o = options.find((x) => x.payIn === "BALANCE") ?? options[0];
+  // Show the price of the pay-in Wise will use for the transfer: the quote's own payIn, otherwise the first option
+  // (createQuote asks for BALANCE first). Showing another option's price once hid a 0.95 EUR fee.
+  const o = options.find((x) => q.payIn && x.payIn === q.payIn) ?? options[0];
   return {
     id: String(q.id),
     source: { amount: o?.sourceAmount ?? q.sourceAmount, currency: q.sourceCurrency },

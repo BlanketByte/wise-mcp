@@ -43,6 +43,7 @@ const newToken = (user: number) => {
 const queries: URL[] = [];
 const readOnlyTokens = new Set<string>();
 const quotes: Record<string, any> = {};
+const quoteBodies: any[] = [];
 const created: any[] = []; // transfers created through the API
 const createCalls: string[] = []; // customerTransactionIds seen
 const newRecipients: any[] = [];
@@ -97,16 +98,25 @@ const mock = createServer(async (req, res) => {
   let w = p.match(/^\/v3\/profiles\/(\d+)\/quotes$/);
   if (w && req.method === "POST") {
     const rate = RATES[body.sourceCurrency + body.targetCurrency] ?? 1;
-    const src = body.sourceAmount ?? Math.round((body.targetAmount / rate + 0.5) * 100) / 100;
-    const tgt = body.targetAmount ?? Math.round((body.sourceAmount - 0.5) * rate * 100) / 100;
+    quoteBodies.push(body);
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    // Like Wise: each pay-in has its own fee; preferredPayIn moves that option first, and the transfer uses the first one.
+    const opt = (payIn: string, fee: number) =>
+      body.sourceAmount != null
+        ? { payIn, payOut: "BANK_TRANSFER", disabled: false, fee: { total: fee }, sourceAmount: body.sourceAmount, targetAmount: r2((body.sourceAmount - fee) * rate) }
+        : { payIn, payOut: "BANK_TRANSFER", disabled: false, fee: { total: fee }, sourceAmount: r2(body.targetAmount / rate + fee), targetAmount: body.targetAmount };
+    const paymentOptions: any[] = [
+      opt("BANK_TRANSFER", 0.8),
+      { ...opt("BALANCE", 0.5), formattedEstimatedDelivery: "by <strong>Monday</strong>" },
+      { payIn: "BALANCE", payOut: "SWIFT", disabled: false, fee: { total: 9 } },
+    ];
+    if (body.preferredPayIn) paymentOptions.sort((a, b) => Number(b.payIn === body.preferredPayIn) - Number(a.payIn === body.preferredPayIn));
+    const src = paymentOptions[0].sourceAmount;
+    const tgt = paymentOptions[0].targetAmount;
     const q = {
       id: randomUUID(), profile: Number(w[1]), sourceCurrency: body.sourceCurrency, targetCurrency: body.targetCurrency, sourceAmount: src, targetAmount: tgt,
       rate, rateType: "FIXED", rateExpirationTime: "2026-10-12T12:00:00Z", payOut: "BANK_TRANSFER", targetAccount: body.targetAccount,
-      paymentOptions: [
-        { payIn: "BANK_TRANSFER", payOut: "BANK_TRANSFER", disabled: false, fee: { total: 0.8 }, sourceAmount: src, targetAmount: tgt },
-        { payIn: "BALANCE", payOut: "BANK_TRANSFER", disabled: false, fee: { total: 0.5 }, sourceAmount: src, targetAmount: tgt, formattedEstimatedDelivery: "by <strong>Monday</strong>" },
-        { payIn: "BALANCE", payOut: "SWIFT", disabled: false, fee: { total: 9 } },
-      ],
+      paymentOptions,
     };
     quotes[q.id] = q;
     return send(200, q);
@@ -141,8 +151,11 @@ const mock = createServer(async (req, res) => {
     const q = quotes[body.quoteUuid];
     if (!q || q.used) return send(422, { errors: [{ code: "quote.invalid", message: "Quote is invalid or already used" }] });
     q.used = true;
-    const t = { id: 8000 + created.length, user, targetAccount: body.targetAccount, quoteUuid: q.id, customerTransactionId: body.customerTransactionId, status: "incoming_payment_waiting", reference: body.details?.reference ?? "", details: body.details, rate: q.rate, created: "2026-10-11 18:00:00", sourceCurrency: q.sourceCurrency, sourceValue: q.sourceAmount, targetCurrency: q.targetCurrency, targetValue: q.targetAmount };
-    // Reproduces a real Wise quirk: a transfer created for a different amount than its quote.
+    const t = { id: 8000 + created.length, user, targetAccount: body.targetAccount, quoteUuid: q.id, customerTransactionId: body.customerTransactionId, status: "incoming_payment_waiting", reference: body.details?.reference ?? "", details: body.details, rate: q.rate, created: "2026-10-11 18:00:00", sourceCurrency: q.sourceCurrency, sourceValue: 0, targetCurrency: q.targetCurrency, targetValue: 0 };
+    // Priced with the quote's first usable pay-in; like Wise, sourceValue excludes the fee.
+    const o = q.paymentOptions.find((x: any) => !x.disabled && x.payOut === q.payOut);
+    Object.assign(t, { sourceValue: Math.round((o.sourceAmount - o.fee.total) * 100) / 100, targetValue: o.targetAmount });
+    // Simulates Wise pricing a transfer differently from what the user approved.
     if (q.sourceAmount === 1.23) Object.assign(t, { sourceValue: 0.05, targetValue: 0.05 });
     created.push(t);
     transfers.push(t as any);
@@ -434,7 +447,9 @@ check("confirm_action cancels the unpaid transfer", !cxl.isError && created[0].s
 const odd = await call(T, "prepare_transfer", { recipient_id: 501, send_amount: 1.23 });
 const oddConf = await call(T, "confirm_action", { confirmation_code: odd.json.confirmation_code });
 const oddT = created[created.length - 1];
-check("amount mismatch → transfer auto-cancelled, clear error", oddConf.isError && oddT.sourceValue === 0.05 && oddT.status === "cancelled" && oddConf.text.includes("0.05 EUR instead of the approved 1.23 EUR") && oddConf.text.includes("cancelled automatically"), oddConf.text);
+check("amount mismatch → transfer auto-cancelled, clear error", oddConf.isError && oddT.targetValue === 0.05 && oddT.status === "cancelled" && oddConf.text.includes("recipient gets 0.05 EUR instead of the approved 0.73 EUR") && oddConf.text.includes("cancelled automatically"), oddConf.text);
+check("quotes ask for BALANCE pricing", quoteBodies.length > 0 && quoteBodies.every((b) => b.preferredPayIn === "BALANCE"));
+check("transfer gets exactly what the summary promised", created[0].targetValue === prep.json.quote.target.amount && prep.json.quote.pay_in === "BALANCE" && prep.json.quote.fee.amount === 0.5, JSON.stringify(prep.json.quote));
 check("paid transfers can't be cancelled", (await call(T, "prepare_cancel_transfer", { transfer_id: 7000 })).text.includes("incoming_payment_waiting"));
 
 const auditLog = readFileSync(path.join(DATA, "audit.log"), "utf8");

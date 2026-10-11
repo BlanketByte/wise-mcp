@@ -365,6 +365,7 @@ function registerWriteTools(
           `${recipient.name} (${recipient.account ?? recipient.type}) receives ${money(quote.target.amount, recipient.currency)}` +
           (quote.fee ? `, fee ${money(quote.fee.amount, sourceCurrency)}` : "") +
           (sourceCurrency !== recipient.currency ? `, rate ${quote.rate}` : "") +
+          (quote.pay_in && quote.pay_in !== "BALANCE" ? `, priced for paying by ${quote.pay_in}` : "") +
           (details.reference ? `, reference "${details.reference}"` : "") +
           (quote.delivery ? `, ${stripHtml(quote.delivery)}` : "");
         const { code, expiresAt } = storePending(
@@ -376,7 +377,7 @@ function registerWriteTools(
             targetAccount: recipient.id,
             customerTransactionId: randomUUID(),
             details,
-            expected: { amount: quote.source.amount, currency: sourceCurrency },
+            expected: { amount: quote.target.amount, currency: recipient.currency },
           },
           summary,
         );
@@ -388,7 +389,7 @@ function registerWriteTools(
           balance_check:
             available >= quote.source.amount
               ? `OK: ${money(available, sourceCurrency)} available`
-              : `Not enough ${sourceCurrency} balance (${money(available, sourceCurrency)}); the user can still pay another way in the Wise app`,
+              : `Not enough ${sourceCurrency} balance (${money(available, sourceCurrency)}): the price assumes paying from the Wise balance, so tell the user to top it up first (paying another way in the app can cost more)`,
           confirmation_code: code,
           expires_at: expiresAt.toISOString(),
           next_step: "Show the summary. Only call confirm_action if the user explicitly approves. Afterwards they pay it in the Wise app.",
@@ -438,9 +439,10 @@ function registerWriteTools(
         try {
           if (a.kind === "transfer") {
             const t = await wise.createTransfer({ targetAccount: a.targetAccount, quoteId: a.quoteId, customerTransactionId: a.customerTransactionId, details: a.details });
-            // Wise has been seen creating a transfer for a different amount than its own quote. Never leave the
-            // user with a transfer they didn't approve: it's still unpaid, so cancel it and say what happened.
-            const got = { amount: Number(t.source.amount), currency: String(t.source.currency ?? "").toUpperCase() };
+            // Never leave the user with a transfer they didn't approve (e.g. priced with another pay-in and a different
+            // fee): it's still unpaid, so cancel it and say what happened. Wise's transfer source amount excludes the
+            // fee, so compare what the recipient gets.
+            const got = { amount: Number(t.target.amount), currency: String(t.target.currency ?? "").toUpperCase() };
             if (Math.abs(got.amount - a.expected.amount) > 0.005 || got.currency !== a.expected.currency.toUpperCase()) {
               const cancelled = await wise.cancelTransfer(t.id).then(
                 (c) => c.status,
@@ -456,12 +458,12 @@ function registerWriteTools(
                 cancelled,
               });
               return fail(
-                `Wise created transfer ${t.id} for ${money(got.amount, got.currency)} instead of the approved ` +
-                  `${money(a.expected.amount, a.expected.currency)} (quote ${a.quoteId}). ` +
+                `Wise created transfer ${t.id} where the recipient gets ${money(got.amount, got.currency)} instead of the approved ` +
+                  `${money(a.expected.amount, a.expected.currency)} (quote ${a.quoteId}), so the price differs from the summary. ` +
                   (cancelled === "cancelled"
                     ? "It was cancelled automatically, so nothing will be paid. "
                     : `Automatic cancellation didn't succeed (${cancelled}): tell the user to cancel it in the Wise app and NOT pay it. `) +
-                  "Don't retry; tell the user this is a Wise-side mismatch.",
+                  "Don't retry; tell the user.",
               );
             }
             await log("transfer_created", { code: confirmation_code, summary: p.summary, transfer_id: t.id, status: t.status });
