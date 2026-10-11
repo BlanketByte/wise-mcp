@@ -1,6 +1,6 @@
 {
   "name": "@blanketbyte/wise-mcp",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "MCP server for Wise: read balances, card payments, transfers and recipients, and prepare transfers you approve twice. Runs locally (npx, for Claude, Codex, Cursor…) or as a remote connector for Claude and ChatGPT.",
   "mcpName": "io.github.BlanketByte/wise-mcp",
   "keywords": [
