@@ -51,7 +51,8 @@
     "e2e:stdio": "tsx scripts/e2e-stdio.ts",
     "test": "npm run typecheck && npm run e2e && npm run e2e:stdio",
     "mcpb": "bash scripts/build-mcpb.sh",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "version": "node scripts/sync-version.mjs && git add plugin.json server.json mcpb/manifest.json"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

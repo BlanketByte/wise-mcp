@@ -189,6 +189,8 @@ Add this to the client's MCP config (for Claude Desktop: **Settings → Develope
 }
 ```
 
+The repo is also an [Agent Plugin](https://agent-plugins.org) (`plugin.json` + `mcp.json`), so clients and directories that support the standard can install it directly. Set `WISE_API_TOKEN` in your client.
+
 Optional env: `WRITES_ENABLED=false` for read-only, `MAX_TRANSFER_AMOUNT` for a per-transfer limit. Run `npx @blanketbyte/wise-mcp --help` for all options.
 
 > [!NOTE]
