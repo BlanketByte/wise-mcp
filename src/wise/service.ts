@@ -398,12 +398,21 @@ function mapQuote(q: any) {
     estimated_delivery: o?.estimatedDelivery,
     delivery: o?.formattedEstimatedDelivery,
     notices: (q.notices ?? []).map((n: any) => stripTags(n.text)).filter(Boolean),
-    // Balance vs bank transfer price: an unpaid transfer shows the BANK_TRANSFER one until it's paid. (Cards and
-    // wallets are left out: there can be ~20 of them, and you pay these transfers in the Wise app anyway.)
-    pay_in_options: options
-      .filter((x) => x.payIn === "BALANCE" || x.payIn === "BANK_TRANSFER")
-      .map((x) => ({ pay_in: x.payIn, fee: x.fee?.total, target_amount: x.targetAmount })),
+    // Every way to pay in the app, cheapest first; methods with the same price are merged (~20 cards and wallets
+    // collapse to a few lines). An unpaid transfer shows the BANK_TRANSFER price until it's paid.
+    pay_in_options: groupPayIns(options),
   };
+}
+
+function groupPayIns(options: any[]) {
+  const groups = new Map<string, { pay_in: string[]; fee: number; target_amount: number }>();
+  for (const x of options) {
+    const key = `${x.fee?.total}|${x.targetAmount}`;
+    const g = groups.get(key) ?? { pay_in: [] as string[], fee: x.fee?.total, target_amount: x.targetAmount };
+    g.pay_in.push(x.payIn);
+    groups.set(key, g);
+  }
+  return [...groups.values()].sort((a, b) => a.fee - b.fee).map((g) => ({ ...g, pay_in: g.pay_in.join(", ") }));
 }
 
 function mapRequirementField(g: any) {
