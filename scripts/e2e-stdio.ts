@@ -17,6 +17,7 @@ const DATA = path.resolve("./data-e2e-stdio");
 const TOKEN = randomUUID();
 const revoked = new Set<string>();
 const created: any[] = [];
+const quotes = new Map<string, any>();
 const check = (label: string, cond: boolean, extra = "") => {
   console.log(`${cond ? "✅" : "❌"} ${label}${extra ? "  " + extra : ""}`);
   if (!cond) process.exitCode = 1;
@@ -44,11 +45,14 @@ const mock = createServer(async (req, res) => {
   }
   if (p === "/v2/accounts/501") return send(200, { id: 501, profileId: 1001, name: { fullName: "Mario Rossi" }, currency: "EUR", type: "iban", accountSummary: "IT60 X054", active: true });
   if (p === "/v3/profiles/1001/quotes" && req.method === "POST") {
-    return send(200, { id: randomUUID(), sourceCurrency: body.sourceCurrency, targetCurrency: body.targetCurrency, sourceAmount: body.sourceAmount, targetAmount: body.sourceAmount, rate: 1, payOut: "BANK_TRANSFER", paymentOptions: [{ payIn: "BALANCE", payOut: "BANK_TRANSFER", disabled: false, fee: { total: 0 }, sourceAmount: body.sourceAmount, targetAmount: body.sourceAmount }] });
+    const q = { id: randomUUID(), sourceCurrency: body.sourceCurrency, targetCurrency: body.targetCurrency, sourceAmount: body.sourceAmount, targetAmount: body.sourceAmount, rate: 1, payOut: "BANK_TRANSFER", paymentOptions: [{ payIn: "BALANCE", payOut: "BANK_TRANSFER", disabled: false, fee: { total: 0 }, sourceAmount: body.sourceAmount, targetAmount: body.sourceAmount }] };
+    quotes.set(q.id, q);
+    return send(200, q);
   }
   if (p === "/v1/transfer-requirements") return send(200, []);
   if (p === "/v1/transfers" && req.method === "POST") {
-    const t = { id: 9000 + created.length, status: "incoming_payment_waiting", ...body };
+    const q = quotes.get(body.quoteUuid);
+    const t = { id: 9000 + created.length, status: "incoming_payment_waiting", ...body, sourceCurrency: q?.sourceCurrency, sourceValue: q?.sourceAmount, targetCurrency: q?.targetCurrency, targetValue: q?.targetAmount };
     created.push(t);
     return send(200, t);
   }

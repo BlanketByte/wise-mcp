@@ -142,6 +142,8 @@ const mock = createServer(async (req, res) => {
     if (!q || q.used) return send(422, { errors: [{ code: "quote.invalid", message: "Quote is invalid or already used" }] });
     q.used = true;
     const t = { id: 8000 + created.length, user, targetAccount: body.targetAccount, quoteUuid: q.id, customerTransactionId: body.customerTransactionId, status: "incoming_payment_waiting", reference: body.details?.reference ?? "", details: body.details, rate: q.rate, created: "2026-10-11 18:00:00", sourceCurrency: q.sourceCurrency, sourceValue: q.sourceAmount, targetCurrency: q.targetCurrency, targetValue: q.targetAmount };
+    // Reproduces a real Wise quirk: a transfer created for a different amount than its quote.
+    if (q.sourceAmount === 1.23) Object.assign(t, { sourceValue: 0.05, targetValue: 0.05 });
     created.push(t);
     transfers.push(t as any);
     return send(200, t);
@@ -429,10 +431,14 @@ const prepCxl = await call(T, "prepare_cancel_transfer", { transfer_id: created[
 check("prepare_cancel_transfer returns a code, cancels nothing", !prepCxl.isError && /^CXL-/.test(prepCxl.json.confirmation_code) && created[0].status === "incoming_payment_waiting");
 const cxl = await call(T, "confirm_action", { confirmation_code: prepCxl.json.confirmation_code });
 check("confirm_action cancels the unpaid transfer", !cxl.isError && created[0].status === "cancelled");
+const odd = await call(T, "prepare_transfer", { recipient_id: 501, send_amount: 1.23 });
+const oddConf = await call(T, "confirm_action", { confirmation_code: odd.json.confirmation_code });
+const oddT = created[created.length - 1];
+check("amount mismatch → transfer auto-cancelled, clear error", oddConf.isError && oddT.sourceValue === 0.05 && oddT.status === "cancelled" && oddConf.text.includes("0.05 EUR instead of the approved 1.23 EUR") && oddConf.text.includes("cancelled automatically"), oddConf.text);
 check("paid transfers can't be cancelled", (await call(T, "prepare_cancel_transfer", { transfer_id: 7000 })).text.includes("incoming_payment_waiting"));
 
 const auditLog = readFileSync(path.join(DATA, "audit.log"), "utf8");
-check("audit log records every write", ["recipient_prepared", "recipient_created", "transfer_prepared", "transfer_created", "action_discarded", "transfer_cancelled"].every((e) => auditLog.includes(`"${e}"`)) && !auditLog.includes(ownerToken));
+check("audit log records every write", ["recipient_prepared", "recipient_created", "transfer_prepared", "transfer_created", "action_discarded", "transfer_cancelled", "transfer_amount_mismatch"].every((e) => auditLog.includes(`"${e}"`)) && !auditLog.includes(ownerToken));
 
 // --- /sessions -------------------------------------------------------------------------------
 const noCookie = await fetch(`${B}/sessions`).then((r) => r.text());

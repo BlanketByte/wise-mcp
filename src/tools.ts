@@ -369,7 +369,15 @@ function registerWriteTools(
           (quote.delivery ? `, ${stripHtml(quote.delivery)}` : "");
         const { code, expiresAt } = storePending(
           sessionKey,
-          { kind: "transfer", profileId: profile.id, quoteId: quote.id, targetAccount: recipient.id, customerTransactionId: randomUUID(), details },
+          {
+            kind: "transfer",
+            profileId: profile.id,
+            quoteId: quote.id,
+            targetAccount: recipient.id,
+            customerTransactionId: randomUUID(),
+            details,
+            expected: { amount: quote.source.amount, currency: sourceCurrency },
+          },
           summary,
         );
         await log("transfer_prepared", { code, summary });
@@ -430,6 +438,32 @@ function registerWriteTools(
         try {
           if (a.kind === "transfer") {
             const t = await wise.createTransfer({ targetAccount: a.targetAccount, quoteId: a.quoteId, customerTransactionId: a.customerTransactionId, details: a.details });
+            // Wise has been seen creating a transfer for a different amount than its own quote. Never leave the
+            // user with a transfer they didn't approve: it's still unpaid, so cancel it and say what happened.
+            const got = { amount: Number(t.source.amount), currency: String(t.source.currency ?? "").toUpperCase() };
+            if (Math.abs(got.amount - a.expected.amount) > 0.005 || got.currency !== a.expected.currency.toUpperCase()) {
+              const cancelled = await wise.cancelTransfer(t.id).then(
+                (c) => c.status,
+                (err) => `cancel failed: ${err instanceof Error ? err.message : err}`,
+              );
+              await log("transfer_amount_mismatch", {
+                code: confirmation_code,
+                summary: p.summary,
+                transfer_id: t.id,
+                quote_id: a.quoteId,
+                expected: a.expected,
+                got,
+                cancelled,
+              });
+              return fail(
+                `Wise created transfer ${t.id} for ${money(got.amount, got.currency)} instead of the approved ` +
+                  `${money(a.expected.amount, a.expected.currency)} (quote ${a.quoteId}). ` +
+                  (cancelled === "cancelled"
+                    ? "It was cancelled automatically, so nothing will be paid. "
+                    : `Automatic cancellation didn't succeed (${cancelled}): tell the user to cancel it in the Wise app and NOT pay it. `) +
+                  "Don't retry; tell the user this is a Wise-side mismatch.",
+              );
+            }
             await log("transfer_created", { code: confirmation_code, summary: p.summary, transfer_id: t.id, status: t.status });
             return ok({
               status: "created_awaiting_payment",
