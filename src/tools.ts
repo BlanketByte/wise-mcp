@@ -67,7 +67,7 @@ export function registerTools(
     {
       title: "List Wise balances",
       description:
-        "Current balances in every currency plus Jars (savings), with amounts. Default: all profiles. " +
+        "Current balances in every currency plus Jars (savings). `amount` is what's available now; `reserved` (pending card payments) is already deducted from it, not extra money. Default: all profiles. " +
         "Empty balances are hidden unless include_empty is true.",
       inputSchema: {
         profile: profileArg.describe('Profile id, "personal", "business", part of the name, or "all" (default)'),
